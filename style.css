@@ -273,7 +273,7 @@ input, textarea { font-family: inherit; }
 /* ============ HERO SCROLL SEQUENCE ============ */
 .hero-scroll {
   position: relative;
-  height: 300vh;
+  height: 200vh;
 }
 .hero-scroll__sticky {
   position: sticky;
@@ -807,7 +807,7 @@ input, textarea { font-family: inherit; }
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 960px) {
-  .hero-scroll { height: 300vh; }
+  .hero-scroll { height: 200vh; }
   .hero-scroll__video--desktop { display: none; }
   .hero-scroll__video--mobile { display: block; }
   .about__grid, .contact__grid { grid-template-columns: 1fr; gap: 50px; }
