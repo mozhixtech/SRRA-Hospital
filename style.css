@@ -302,7 +302,7 @@ input, textarea { font-family: inherit; }
 .hero-scroll__frame--0 { pointer-events: auto; }
 .hero-scroll__frame--0 .eyebrow { color: var(--color-secondary); }
 .hero-scroll__title {
-  font-size: clamp(38px, 7vw, 80px);
+  font-size: clamp(28px, 7vw, 80px);
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.04;
@@ -769,6 +769,7 @@ input, textarea { font-family: inherit; }
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 960px) {
+  .hero-scroll { height: 400vh; }
   .about__grid, .contact__grid { grid-template-columns: 1fr; gap: 50px; }
   .stats__grid { grid-template-columns: repeat(2, 1fr); gap: 40px; }
   .navbar__menu { display: none; }

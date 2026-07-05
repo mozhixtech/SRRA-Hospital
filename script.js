@@ -89,7 +89,12 @@
       dpr: Math.min(window.devicePixelRatio || 1, 2),
     };
 
+    let lastWidth = window.innerWidth;
     function resizeCanvas() {
+      if (window.innerWidth === lastWidth && canvas.width > 0) {
+        return;
+      }
+      lastWidth = window.innerWidth;
       canvas.width = window.innerWidth * state.dpr;
       canvas.height = window.innerHeight * state.dpr;
       canvas.style.width = window.innerWidth + "px";
@@ -169,9 +174,18 @@
     function loadFrame(i) {
       return new Promise((resolve) => {
         const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(null);
         img.src = FRAME_PATH(i);
+        if (typeof img.decode === "function") {
+          img.decode()
+            .then(() => resolve(img))
+            .catch(() => {
+              img.onload = () => resolve(img);
+              img.onerror = () => resolve(null);
+            });
+        } else {
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+        }
       });
     }
 
@@ -212,46 +226,65 @@
       }
     }
 
-    /* ---- Scroll → frame mapping ---- */
+    /* ---- Scroll & Render Loop Metrics ---- */
     const frames = Array.from(section.querySelectorAll(".hero-scroll__frame"));
+    let sectionTop = 0;
+    let sectionHeight = 0;
+    let targetFrame = 0;
+    let currentFrameFloat = 0;
 
-    function onScrollTick() {
+    function updateMetrics() {
       const rect = section.getBoundingClientRect();
-      const total = section.offsetHeight - window.innerHeight;
-      const scrolled = clamp(-rect.top, 0, total);
-      const progress = total > 0 ? scrolled / total : 0;
-
-      const frameIdx = Math.round(progress * (FRAME_COUNT - 1));
-      if (frameIdx !== state.currentFrame) {
-        state.currentFrame = frameIdx;
-      }
-      drawCurrentFrame();
-
-      // Text overlay fade between the 4 narrative beats.
-      const beat = clamp(Math.floor(progress * frames.length), 0, frames.length - 1);
-      frames.forEach((f, i) => f.classList.toggle("is-active", i === beat));
+      sectionTop = rect.top + window.scrollY;
+      sectionHeight = section.offsetHeight;
     }
 
-    let ticking = false;
+    function onScroll() {
+      const scrollTop = window.scrollY;
+      const scrolled = clamp(scrollTop - sectionTop, 0, sectionHeight - window.innerHeight);
+      const totalScrollable = sectionHeight - window.innerHeight;
+      const progress = totalScrollable > 0 ? scrolled / totalScrollable : 0;
+      
+      targetFrame = progress * (FRAME_COUNT - 1);
+    }
+
+    function animateLoop() {
+      // Smoothly glide toward target frame
+      currentFrameFloat = lerp(currentFrameFloat, targetFrame, 0.12);
+      
+      const roundedFrame = Math.round(currentFrameFloat);
+      if (roundedFrame !== state.currentFrame) {
+        state.currentFrame = roundedFrame;
+        drawCurrentFrame();
+        
+        // Update text frames based on smooth animated progress
+        const progress = currentFrameFloat / (FRAME_COUNT - 1);
+        const beat = clamp(Math.floor(progress * frames.length), 0, frames.length - 1);
+        frames.forEach((f, i) => f.classList.toggle("is-active", i === beat));
+      }
+      
+      requestAnimationFrame(animateLoop);
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+
     window.addEventListener(
-      "scroll",
-      () => {
-        if (!ticking) {
-          window.requestAnimationFrame(() => {
-            onScrollTick();
-            ticking = false;
-          });
-          ticking = true;
-        }
-      },
-      { passive: true }
+      "resize",
+      debounce(() => {
+        updateMetrics();
+        resizeCanvas();
+        onScroll();
+      }, 150)
     );
 
-    window.addEventListener("resize", debounce(resizeCanvas, 150));
-
+    // Initial setup
+    updateMetrics();
     resizeCanvas();
     loadSequence();
-    onScrollTick();
+    onScroll();
+    
+    // Start smooth animation loop
+    animateLoop();
   }
 
   /* ---------------------------------------------------------------------
