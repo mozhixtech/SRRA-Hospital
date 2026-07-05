@@ -95,6 +95,12 @@
         return;
       }
       lastWidth = window.innerWidth;
+      
+      // Calculate dynamic DPR based on native image width (1232px) to prevent upscale blur
+      const maxImageWidth = 1232;
+      const targetDpr = Math.min(window.devicePixelRatio || 1, maxImageWidth / window.innerWidth);
+      state.dpr = Math.max(1, targetDpr);
+      
       canvas.width = window.innerWidth * state.dpr;
       canvas.height = window.innerHeight * state.dpr;
       canvas.style.width = window.innerWidth + "px";
@@ -160,7 +166,27 @@
         return;
       }
       const idx = clamp(state.currentFrame, 0, state.images.length - 1);
-      const img = state.images[idx];
+      
+      // Fallback to the closest loaded frame so the user never sees a generic gradient flash
+      let img = state.images[idx];
+      if (!img || !img.complete || !img.naturalWidth) {
+        let closestIdx = -1;
+        let minDistance = Infinity;
+        for (let i = 0; i < state.images.length; i++) {
+          const tempImg = state.images[i];
+          if (tempImg && tempImg.complete && tempImg.naturalWidth) {
+            const dist = Math.abs(i - idx);
+            if (dist < minDistance) {
+              minDistance = dist;
+              closestIdx = i;
+            }
+          }
+        }
+        if (closestIdx !== -1) {
+          img = state.images[closestIdx];
+        }
+      }
+
       if (img && img.complete && img.naturalWidth) {
         const w = canvas.width, h = canvas.height;
         // On mobile viewports (narrow screens), show the full image (contain); on desktop, cover the screen
