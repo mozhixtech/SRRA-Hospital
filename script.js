@@ -71,198 +71,16 @@
     update();
   }
 
-  // Canvas-based image sequence driven by scrolling
-  function initScrollSequence() {
+  // Looping background video scroll text controller
+  function initHeroScroll() {
     const section = document.querySelector(".hero-scroll");
-    const canvas = document.getElementById("sequenceCanvas");
-    if (!section || !canvas) return;
+    if (!section) return;
 
-    const ctx = canvas.getContext("2d");
-    const FRAME_COUNT = 151;
-    const FRAME_PATH = (i) => `images/sequence/ezgif-frame-${String(i + 1).padStart(3, "0")}.webp`;
-
-    const state = {
-      images: [],
-      loaded: 0,
-      useFallback: false,
-      currentFrame: 0,
-      dpr: 1,
-    };
-
-    let lastWidth = window.innerWidth;
-    function resizeCanvas() {
-      if (window.innerWidth === lastWidth && canvas.width > 0) {
-        return;
-      }
-      lastWidth = window.innerWidth;
-      
-      // Calculate dynamic DPR based on native image width (1232px) to prevent upscale blur
-      const maxImageWidth = 1232;
-      const targetDpr = Math.min(window.devicePixelRatio || 1, maxImageWidth / window.innerWidth);
-      state.dpr = Math.max(1, targetDpr);
-      
-      canvas.width = window.innerWidth * state.dpr;
-      canvas.height = window.innerHeight * state.dpr;
-      canvas.style.width = window.innerWidth + "px";
-      canvas.style.height = window.innerHeight + "px";
-      drawCurrentFrame();
-    }
-
-    /* ---- Fallback procedural renderer (used only if no photo frames exist) ---- */
-    function drawFallbackFrame(progress) {
-      const w = canvas.width;
-      const h = canvas.height;
-
-      // Base gradient sweeps hue across the scroll range — calm clinical blues.
-      const g = ctx.createLinearGradient(0, 0, w, h);
-      const hueShift = progress * 40;
-      g.addColorStop(0, `hsl(${214 + hueShift * 0.2}, 85%, ${8 + progress * 4}%)`);
-      g.addColorStop(0.5, `hsl(${206 + hueShift * 0.3}, 70%, ${14 + progress * 6}%)`);
-      g.addColorStop(1, `hsl(${198 + hueShift * 0.4}, 60%, ${10 + progress * 5}%)`);
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-
-      // Drifting soft light orbs — suggest movement without real photography.
-      const orbCount = 4;
-      for (let i = 0; i < orbCount; i++) {
-        const t = progress * Math.PI * 2 + i * (Math.PI / 2);
-        const ox = w * 0.5 + Math.cos(t + i) * w * 0.32;
-        const oy = h * 0.5 + Math.sin(t * 0.7 + i) * h * 0.28;
-        const radius = Math.min(w, h) * (0.18 + i * 0.03);
-        const orbGrad = ctx.createRadialGradient(ox, oy, 0, ox, oy, radius);
-        const alpha = 0.10 + 0.05 * Math.sin(progress * Math.PI * 2 + i);
-        orbGrad.addColorStop(0, `rgba(25, 181, 254, ${alpha})`);
-        orbGrad.addColorStop(1, "rgba(25, 181, 254, 0)");
-        ctx.fillStyle = orbGrad;
-        ctx.beginPath();
-        ctx.arc(ox, oy, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Faint ECG line etched across the frame for thematic continuity.
-      ctx.save();
-      ctx.strokeStyle = `rgba(0, 208, 132, ${0.18 + progress * 0.12})`;
-      ctx.lineWidth = 2 * state.dpr;
-      ctx.beginPath();
-      const midY = h * 0.62;
-      const span = w;
-      const segment = span / 12;
-      ctx.moveTo(0, midY);
-      for (let x = 0; x <= span; x += segment) {
-        const beatPhase = ((x / span) * 6 + progress * 6) % 1;
-        let y = midY;
-        if (beatPhase > 0.4 && beatPhase < 0.46) y = midY - h * 0.05;
-        else if (beatPhase >= 0.46 && beatPhase < 0.5) y = midY + h * 0.09;
-        else if (beatPhase >= 0.5 && beatPhase < 0.55) y = midY - h * 0.02;
-        ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    function drawCurrentFrame() {
-      if (state.useFallback || state.images.length === 0) {
-        drawFallbackFrame(state.currentFrame / (FRAME_COUNT - 1));
-        return;
-      }
-      const idx = clamp(state.currentFrame, 0, state.images.length - 1);
-      
-      // Fallback to the closest loaded frame so the user never sees a generic gradient flash
-      let img = state.images[idx];
-      if (!img || !img.complete || !img.naturalWidth) {
-        let closestIdx = -1;
-        let minDistance = Infinity;
-        for (let i = 0; i < state.images.length; i++) {
-          const tempImg = state.images[i];
-          if (tempImg && tempImg.complete && tempImg.naturalWidth) {
-            const dist = Math.abs(i - idx);
-            if (dist < minDistance) {
-              minDistance = dist;
-              closestIdx = i;
-            }
-          }
-        }
-        if (closestIdx !== -1) {
-          img = state.images[closestIdx];
-        }
-      }
-
-      if (img && img.complete && img.naturalWidth) {
-        const w = canvas.width, h = canvas.height;
-        // On mobile viewports (narrow screens), show the full image (contain); on desktop, cover the screen
-        const isMobile = window.innerWidth < 768;
-        const scale = isMobile 
-          ? Math.min(w / img.width, h / img.height) 
-          : Math.max(w / img.width, h / img.height);
-        
-        const dw = img.width * scale, dh = img.height * scale;
-        ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
-      } else {
-        drawFallbackFrame(state.currentFrame / (FRAME_COUNT - 1));
-      }
-    }
-
-    function loadFrame(i) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.src = FRAME_PATH(i);
-        if (typeof img.decode === "function") {
-          img.decode()
-            .then(() => resolve(img))
-            .catch(() => {
-              img.onload = () => resolve(img);
-              img.onerror = () => resolve(null);
-            });
-        } else {
-          img.onload = () => resolve(img);
-          img.onerror = () => resolve(null);
-        }
-      });
-    }
-
-    async function loadSequence() {
-      const first = await loadFrame(0);
-      if (!first) {
-        // No photography frames present — use the procedural fallback.
-        state.useFallback = true;
-        drawCurrentFrame();
-        return;
-      }
-      state.images[0] = first;
-      drawCurrentFrame();
-
-      // Lazy-load the remainder in chunks of 10, never blocking rendering.
-      let next = 1;
-      const loadChunk = async (deadline) => {
-        let count = 0;
-        while (next < FRAME_COUNT && count < 10) {
-          const img = await loadFrame(next);
-          if (img) state.images[next] = img;
-          next++;
-          count++;
-          if (deadline && deadline.timeRemaining && deadline.timeRemaining() < 1) break;
-        }
-        if (next < FRAME_COUNT) {
-          scheduleIdle(loadChunk);
-        }
-      };
-      scheduleIdle(loadChunk);
-    }
-
-    function scheduleIdle(cb) {
-      if ("requestIdleCallback" in window) {
-        window.requestIdleCallback(cb, { timeout: 1000 });
-      } else {
-        setTimeout(() => cb(null), 50);
-      }
-    }
-
-    /* ---- Scroll & Render Loop Metrics ---- */
     const frames = Array.from(section.querySelectorAll(".hero-scroll__frame"));
     let sectionTop = 0;
     let sectionHeight = 0;
-    let targetFrame = 0;
-    let currentFrameFloat = 0;
+    let targetProgress = 0;
+    let currentProgress = 0;
 
     function updateMetrics() {
       const rect = section.getBoundingClientRect();
@@ -274,47 +92,47 @@
       const scrollTop = window.scrollY;
       const scrolled = clamp(scrollTop - sectionTop, 0, sectionHeight - window.innerHeight);
       const totalScrollable = sectionHeight - window.innerHeight;
-      const progress = totalScrollable > 0 ? scrolled / totalScrollable : 0;
-      
-      targetFrame = progress * (FRAME_COUNT - 1);
+      targetProgress = totalScrollable > 0 ? scrolled / totalScrollable : 0;
     }
 
     function animateLoop() {
-      // Smoothly glide toward target frame
-      currentFrameFloat = lerp(currentFrameFloat, targetFrame, 0.12);
+      // Smoothly interpolate the progress
+      currentProgress = lerp(currentProgress, targetProgress, 0.12);
       
-      const roundedFrame = Math.round(currentFrameFloat);
-      if (roundedFrame !== state.currentFrame) {
-        state.currentFrame = roundedFrame;
-        drawCurrentFrame();
+      // Calculate which frame/beat should be active
+      const beat = clamp(Math.floor(currentProgress * frames.length), 0, frames.length - 1);
+      
+      frames.forEach((f, i) => {
+        // Toggle the active class
+        const isActive = i === beat;
+        f.classList.toggle("is-active", isActive);
         
-        // Update text frames based on smooth animated progress
-        const progress = currentFrameFloat / (FRAME_COUNT - 1);
-        const beat = clamp(Math.floor(progress * frames.length), 0, frames.length - 1);
-        frames.forEach((f, i) => f.classList.toggle("is-active", i === beat));
-      }
-      
+        // Add subtle parallax translateY offset based on progress for extra visual quality
+        if (isActive) {
+          const frameProgress = (currentProgress * frames.length) - i; // 0 to 1 inside the active window
+          const offset = (frameProgress - 0.5) * -30; // Float up as scroll goes down
+          f.style.transform = `translateY(${offset}px)`;
+        } else {
+          f.style.transform = "";
+        }
+      });
+
       requestAnimationFrame(animateLoop);
     }
 
     window.addEventListener("scroll", onScroll, { passive: true });
-
+    
     window.addEventListener(
       "resize",
       debounce(() => {
         updateMetrics();
-        resizeCanvas();
         onScroll();
       }, 150)
     );
 
     // Initial setup
     updateMetrics();
-    resizeCanvas();
-    loadSequence();
     onScroll();
-    
-    // Start smooth animation loop
     animateLoop();
   }
 
@@ -474,7 +292,7 @@
   function init() {
     initNavbar();
     initPulseTrack();
-    initScrollSequence();
+    initHeroScroll();
     initScrollReveal();
     initCounters();
     initContactForm();
