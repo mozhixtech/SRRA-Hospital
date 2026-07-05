@@ -79,7 +79,7 @@
 
     const ctx = canvas.getContext("2d");
     const FRAME_COUNT = 151;
-    const FRAME_PATH = (i) => `images/sequence/ezgif-frame-${String(i + 1).padStart(3, "0")}.jpg`;
+    const FRAME_PATH = (i) => `images/sequence/ezgif-frame-${String(i + 1).padStart(3, "0")}.webp`;
 
     const state = {
       images: [],
