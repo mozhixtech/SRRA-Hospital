@@ -86,7 +86,7 @@
       loaded: 0,
       useFallback: false,
       currentFrame: 0,
-      dpr: Math.min(window.devicePixelRatio || 1, 2),
+      dpr: 1,
     };
 
     let lastWidth = window.innerWidth;
@@ -163,7 +163,12 @@
       const img = state.images[idx];
       if (img && img.complete && img.naturalWidth) {
         const w = canvas.width, h = canvas.height;
-        const scale = Math.max(w / img.width, h / img.height);
+        // On mobile viewports (narrow screens), show the full image (contain); on desktop, cover the screen
+        const isMobile = window.innerWidth < 768;
+        const scale = isMobile 
+          ? Math.min(w / img.width, h / img.height) 
+          : Math.max(w / img.width, h / img.height);
+        
         const dw = img.width * scale, dh = img.height * scale;
         ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
       } else {
